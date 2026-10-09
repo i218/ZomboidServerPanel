@@ -20,6 +20,8 @@ class SetupTests {
         string jar=Path.Combine(both,"mods","ServerPanelBridge","42","media","java","ServerPanelBridge.jar");
         Check(File.Exists(jar) && new FileInfo(jar).Length>1000,"embedded JAR deployed");
         Check(File.ReadAllText(ini)==original.Replace("Mods=\\Other;\\ZombieBuddy","Mods=\\Other;\\ZombieBuddy;\\ServerPanelBridge"),"preserve INI settings and IDs");
+        Check(File.Exists(Path.Combine(both,"mods","ServerPanelBridgeMenu","42","media","lua","client","ServerPanelBridgeMLOSCompat.lua")) && File.ReadAllText(profile).Contains("mod = ServerPanelBridgeMenu"),"menu component installed and enabled automatically");
+        Check(!Directory.Exists(Path.Combine(both,"mods","ServerPanelBridge","42","media","lua","client")) && !File.ReadAllText(ini).Contains("ServerPanelBridgeMenu"),"menu Lua excluded from core mod and server INI");
         byte[] bytes=File.ReadAllBytes(ini); Check(bytes[0]==239 && bytes[1]==187 && bytes[2]==191,"preserve UTF-8 BOM");
         Check(File.ReadAllText(profile).Contains("mod = Other") && File.ReadAllText(profile).Contains("mod = ServerPanelBridge") && File.ReadAllText(profile).Contains("map = CustomMap"),"client profile preserves mods and maps");
         string config=Path.Combine(both,"ServerPanelBridge","test1","ServerPanelBridge.properties");
@@ -35,6 +37,7 @@ class SetupTests {
         Directory.CreateDirectory(Path.Combine(server,"Server")); File.WriteAllText(Path.Combine(server,"Server","srv.ini"),"Mods=Other\n");
         Setup.Install(server,"srv",true,false);
         Check(!File.Exists(Path.Combine(server,"mods","default.txt")),"server mode leaves client profile");
+        Check(!Directory.Exists(Path.Combine(server,"mods","ServerPanelBridgeMenu")),"server-only mode excludes menu component");
         string client=Path.Combine(root,"client"); Setup.Install(client,"",false,true);
         Check(File.ReadAllText(Path.Combine(client,"mods","default.txt")).Contains("ServerPanelBridge") && !Directory.Exists(Path.Combine(client,"ServerPanelBridge")),"client mode creates no runtime config");
         Check(Setup.EnableServer("Mods=Other\n")=="Mods=Other;ZombieBuddy;ServerPanelBridge\n","plain ID syntax preserved");

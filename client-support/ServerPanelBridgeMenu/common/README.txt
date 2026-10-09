@@ -1,0 +1,1 @@
+Optional administrator menu component.

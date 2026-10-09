@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Windows.Forms;
 using System.Drawing;
-[assembly: AssemblyVersion("0.1.1.0")]
+[assembly: AssemblyVersion("0.1.2.0")]
 [assembly: AssemblyTitle("ServerPanelBridge Setup")]
 public class Setup {
     const string Id="ServerPanelBridge";
@@ -66,8 +66,10 @@ public class Setup {
     public static string EnableClient(string text) {
         var blocks=Regex.Matches(text,@"(?ms)^\s*mods\s*\{(?<body>[^{}]*)\}");
         if(blocks.Count!=1) throw new IOException("Не удалось прочитать mods/default.txt; установка отменена.");
-        if(Regex.IsMatch(blocks[0].Groups["body"].Value,@"(?m)^\s*mod\s*=\s*\\?ServerPanelBridge\s*,?\s*$")) return text;
-        return text.Insert(blocks[0].Index+blocks[0].Length-1,"    mod = ServerPanelBridge,"+(text.Contains("\r\n")?"\r\n":"\n"));
+        bool core=Regex.IsMatch(blocks[0].Groups["body"].Value,@"(?m)^\s*mod\s*=\s*\\?ServerPanelBridge\s*,?\s*$");
+        bool menu=Regex.IsMatch(blocks[0].Groups["body"].Value,@"(?m)^\s*mod\s*=\s*\\?ServerPanelBridgeMenu\s*,?\s*$");
+        string nl=text.Contains("\r\n")?"\r\n":"\n";
+        return text.Insert(blocks[0].Index+blocks[0].Length-1,(core?"":"    mod = ServerPanelBridge,"+nl)+(menu?"":"    mod = ServerPanelBridgeMenu,"+nl));
     }
     static void SafePath(string path,string root) {
         string full=Path.GetFullPath(path), boundary=Path.GetFullPath(root).TrimEnd('\\','/')+Path.DirectorySeparatorChar;
@@ -128,8 +130,19 @@ public class Setup {
             foreach(var entry in zip.Entries) {
                 if(entry.FullName.EndsWith("/")) continue;
                 if(!entry.FullName.StartsWith(Id+"/",StringComparison.Ordinal)) throw new IOException("Неверный payload");
-                string dest=Path.GetFullPath(Path.Combine(target,entry.FullName.Substring(Id.Length+1).Replace('/',Path.DirectorySeparatorChar)));
-                SafePath(dest,target);
+                string relative=entry.FullName.Substring(Id.Length+1);
+                string destinationRoot=target;
+                if(relative.StartsWith("client-support/",StringComparison.Ordinal)) {
+                    if(!client) continue;
+                    string prefix="client-support/ServerPanelBridgeMenu/";
+                    if(!relative.StartsWith(prefix,StringComparison.Ordinal)) throw new IOException("Unknown client component");
+                    relative=relative.Substring(prefix.Length);
+                    destinationRoot=Path.Combine(dataDir,"mods","ServerPanelBridgeMenu");
+                    string existingInfo=Path.Combine(destinationRoot,"42","mod.info");
+                    if(Directory.Exists(destinationRoot) && (!File.Exists(existingInfo) || !Regex.IsMatch(File.ReadAllText(existingInfo),@"(?m)^id=ServerPanelBridgeMenu\r?$"))) throw new IOException("Unrecognized menu component: "+destinationRoot);
+                }
+                string dest=Path.GetFullPath(Path.Combine(destinationRoot,relative.Replace('/',Path.DirectorySeparatorChar)));
+                SafePath(dest,destinationRoot);
                 using(var input=entry.Open()) using(var memory=new MemoryStream()) { input.CopyTo(memory); writes.Add(dest,memory.ToArray()); }
             }
             byte[] jar=writes[Path.Combine(target,"42","media","java",Id+".jar")];
@@ -174,7 +187,7 @@ public class Setup {
         TextBox path=new TextBox(); ComboBox name=new ComboBox();
         CheckBox server=new CheckBox(), client=new CheckBox();
         public InstallForm() {
-            Text="ServerPanelBridge 0.1.1 — установка"; ClientSize=new Size(580,270); FormBorderStyle=FormBorderStyle.FixedDialog; MaximizeBox=false;
+            Text="ServerPanelBridge 0.1.2 — установка"; ClientSize=new Size(580,270); FormBorderStyle=FormBorderStyle.FixedDialog; MaximizeBox=false;
             var label=new Label { Text="Папка данных Zomboid (cachedir), не папка игры:",AutoSize=true,Location=new Point(15,15) }; Controls.Add(label);
             path.Text=DefaultDir; path.SetBounds(15,40,450,25); Controls.Add(path);
             var browse=new Button {Text="Обзор",Location=new Point(475,40)}; Controls.Add(browse);

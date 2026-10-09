@@ -33,3 +33,9 @@ dotnet run --project tools/PanelApiSmoke -p:PanelAssembly="<path to ServerPanel.
 ```
 
 It allocates a temporary loopback port and uses memory storage only. The process exits after checking the received heartbeat.
+
+## 0.1.2 MLOS fix
+
+Nine compatibility assertions passed in the installed game's Kahlua runtime with isolated MLOS API fixtures: idempotent hook, local ID/order preserved, no warning, backslash syntax, metadata lookup, missing mods retained on original path, published ID passthrough, foreign metadata rejection, and unrelated items delegated.
+
+Nineteen installer assertions cover the existing checks plus automatic menu deployment/activation, exclusion of menu Lua from the core mod/server INI, and no menu component in server-only mode. Live MLOS interaction after reinstalling remains a deployment check.

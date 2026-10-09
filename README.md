@@ -115,3 +115,11 @@ Adapters use the locally verified Build 42 API: `GameServer.server`, `GameServer
 The JAR uses the neutral `42/media/java/` path because early ZombieBuddy environment detection can skip the server-specific Java directory. Server Lua ticks and the Java dedicated-server guard prevent client reporting. An unsupported API disables initialization and logs an error.
 
 A live dedicated-server launch remains the final deployment check; a successful build or API test does not establish that ZombieBuddy accepted the unsigned JAR.
+
+## Local mods in MLOS (0.1.2)
+
+When the client checkbox is selected, the same installer also installs and enables ServerPanelBridgeMenu. It retains the installed local ServerPanelBridge ID when MLOS saves server settings, without inventing a Steam Workshop ID. Missing mods and published items remain handled by MLOS. Enable the menu component in the main-menu Mods list and restart the game after updating.
+
+The menu component must stay out of the server INI. Its Lua files are kept separate from the core mod to preserve optional client installation with game checksums enabled. The installer handles both directories automatically. Manual installation requires copying the bundled client-support/ServerPanelBridgeMenu into the client mods directory and enabling it there.
+
+UnknownFormatConversionException in other mods' translated settings is a separate issue; this compatibility module defines no translations or options panel.

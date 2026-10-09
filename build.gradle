@@ -1,7 +1,7 @@
 plugins { id 'java' }
 
 group = 'io.serverpanelbridge'
-version = '0.1.1'
+version = '0.1.2'
 java { sourceCompatibility = JavaVersion.VERSION_11; targetCompatibility = JavaVersion.VERSION_11 }
 tasks.withType(JavaCompile).configureEach {
     options.release = 11
@@ -33,6 +33,7 @@ tasks.register('modZip', Zip) {
         into('common') { from('common') }
         into('config') { from('config') }
         into('docs') { from('docs') }
+        into('client-support') { from('client-support') }
         from('README.md', 'README.ru.md', 'VERIFICATION.md')
     }
 }
