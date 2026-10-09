@@ -1,0 +1,39 @@
+plugins { id 'java' }
+
+group = 'io.serverpanelbridge'
+version = '0.1.0'
+java { sourceCompatibility = JavaVersion.VERSION_11; targetCompatibility = JavaVersion.VERSION_11 }
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+tasks.named('jar') {
+    archiveFileName = 'ServerPanelBridge.jar'
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    manifest { attributes 'Implementation-Title': 'ServerPanelBridge', 'Implementation-Version': project.version }
+}
+tasks.register('selfTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'io.serverpanelbridge.BridgeTests'
+}
+tasks.named('check') { dependsOn selfTest }
+tasks.register('stageMod', Copy) {
+    dependsOn jar
+    from(tasks.named('jar'))
+    into layout.projectDirectory.dir('42/media/java')
+}
+tasks.register('modZip', Zip) {
+    dependsOn stageMod
+    archiveFileName = 'ServerPanelBridge-mod.zip'
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    into('ServerPanelBridge') {
+        into('42') { from('42') }
+        into('common') { from('common') }
+        into('config') { from('config') }
+        into('docs') { from('docs') }
+        from('README.md', 'README.ru.md', 'VERIFICATION.md')
+    }
+}
+tasks.named('build') { dependsOn stageMod }
