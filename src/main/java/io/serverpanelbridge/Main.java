@@ -7,6 +7,7 @@ public final class Main {
     private static final Logger LOG = Logger.getLogger("ServerPanelBridge");
     private static boolean registered, initialized, failedGuard;
     private static PanelReporter reporter;
+    private static CommandService commands;
     private Main() { }
     public static synchronized void main(String[] args) {
         if (registered) return;
@@ -42,10 +43,16 @@ public final class Main {
                     reporter = new PanelReporter(config, new JvmMetrics(), () -> System.nanoTime() / 1_000_000, LOG);
                     Runtime.getRuntime().addShutdownHook(new Thread(reporter::close, "ServerPanelBridge-Cleanup"));
                     reporter.start();
+                    if(config.commandsEnabled) {
+                        commands = new CommandService(config, file.getParent().resolve("commands"), new PzShutdownAdapter(config.stopWhenPlayersOnline), System::currentTimeMillis, LOG);
+                        Runtime.getRuntime().addShutdownHook(new Thread(commands::close, "ServerPanelBridge-ControlCleanup"));
+                        commands.start();
+                    }
                 }
-                LOG.info("Monitoring " + (config.enabled ? "enabled" : "disabled") + "; hostId=" + config.hostId + "; no process-control commands");
+                LOG.info("Monitoring " + (config.enabled ? "enabled" : "disabled") + "; hostId=" + config.hostId + "; commandsEnabled=" + config.commandsEnabled + "; stopEnabled=" + config.stopEnabled);
             } catch (Exception error) { LOG.log(Level.SEVERE, "Monitoring initialization failed; retry requires server restart", error); }
         }
         if (reporter != null) reporter.onGameTick();
+        if (commands != null) commands.onGameTick();
     }
 }

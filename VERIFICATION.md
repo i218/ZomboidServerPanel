@@ -20,7 +20,7 @@ The HTTP client explicitly uses HTTP/1.1; default cleartext HTTP/2 upgrade cause
 - Live dedicated-server startup and ZombieBuddy acceptance of this unsigned JAR.
 - Native ServerPanel UI observation with a running PZ server.
 - Steam Workshop distribution. No item or signing identity has been created.
-- Process control; it is outside this release and no command consumer is present.
+- Real dedicated-server graceful shutdown/save completion. Stop is implemented, but tests do not stop a running game.
 
 ## Reproduce API smoke
 
@@ -39,3 +39,9 @@ It allocates a temporary loopback port and uses memory storage only. The process
 Nine compatibility assertions passed in the installed game's Kahlua runtime with isolated MLOS API fixtures: idempotent hook, local ID/order preserved, no warning, backslash syntax, metadata lookup, missing mods retained on original path, published ID passthrough, foreign metadata rejection, and unrelated items delegated.
 
 Nineteen installer assertions cover the existing checks plus automatic menu deployment/activation, exclusion of menu Lua from the core mod/server INI, and no menu component in server-only mode. Live MLOS interaction after reinstalling remains a deployment check.
+
+## 0.2.0 graceful stop
+
+Eighteen control assertions cover strict JSON, occupied/empty-server policy, client guard, disabled controls, game-thread dispatch, duplicate delivery, durable replay protection with new lease tokens, start/restart rejection, expired leases, uncertain reservations, journal failure, oversized responses, bounded response-body timeout, and no persisted lease tokens.
+
+The real existing ServerPanel API was tested with an isolated in-memory registry and temporary loopback port. It leased start/stop/restart commands to the Java bridge; stop with a simulated game adapter was acknowledged and unsupported actions were marked Failed. No actual game server was stopped or started, and no active panel data was modified.

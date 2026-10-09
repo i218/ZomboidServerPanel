@@ -20,7 +20,7 @@ Online alone does not prove the game loop is responsive. A running reporter can 
 
 Networking runs on a daemon worker. Panel outages cannot block game ticks. Requests have a two-second timeout; retries back off to 30 seconds and recover automatically.
 
-This release implements **monitoring**. It does not poll or execute start/stop/restart commands. Player counts and Workshop updates need additional fields in ServerPanel and are not sent as unrelated metrics.
+This release implements **monitoring and opt-in graceful stop**. Start and restart are explicitly rejected. Player counts and Workshop updates need additional fields in ServerPanel and are not sent as unrelated metrics.
 
 ## Install with one executable
 
@@ -123,3 +123,24 @@ When the client checkbox is selected, the same installer also installs and enabl
 The menu component must stay out of the server INI. Its Lua files are kept separate from the core mod to preserve optional client installation with game checksums enabled. The installer handles both directories automatically. Manual installation requires copying the bundled client-support/ServerPanelBridgeMenu into the client mods directory and enabling it there.
 
 UnknownFormatConversionException in other mods' translated settings is a separate issue; this compatibility module defines no translations or options panel.
+
+
+## Graceful stop (0.2.0)
+
+The host Stop command is supported through the panel command queue. In the server's active ServerPanelBridge.properties, set:
+
+```properties
+commandsEnabled=true
+stopEnabled=true
+stopWhenPlayersOnline=false
+```
+
+Restart the dedicated server after editing. Existing configs are preserved by the installer; missing keys use these defaults except stopEnabled defaults to false.
+
+Commands are polled every five seconds on a separate worker. Stop runs on the game thread using the verified public Build 42 ServerMap.QueueQuit() API. The game performs its normal queued save/quit procedure. With stopWhenPlayersOnline=false, a nonempty server refuses stop and reports the reason to the panel. To explicitly allow stopping a nonempty server, set stopWhenPlayersOnline=true.
+
+The panel acknowledgement means **shutdown was requested**, not that saving or process exit has completed. The host should later become offline. The process may exit before acknowledgement reaches the panel; an on-disk command journal prevents the same command stopping a subsequent server session.
+
+Start and restart are explicitly rejected: starting a stopped JVM requires ServerPanel's local process management or another supervisor. commandsEnabled=false disables command polling; enabled=false disables both reporting and command processing. Nothing invokes kill, System.exit or a shell.
+
+The journal is stored beside the runtime config in commands/. It retains up to 1,000 command outcomes without lease tokens. An uncertain reserved command is not automatically replayed; send a new command after checking the server. Preserve the journal when updating.
