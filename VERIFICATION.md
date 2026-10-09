@@ -3,12 +3,17 @@
 ## Passed
 
 - Gradle 8.7 build with JDK 11, Java 11 bytecode.
-- The same ten behavioral tests passed on the installed game Java runtime as well as JDK 11.
-- Ten dependency-free behavioral tests: defaults/identity; destination and config validation; UTF-8 configuration persistence; JSON encoding/metrics; CPU normalization/backoff; HTTP contract and tick freshness; HTTP errors/redirect rejection; timeout; scheduler lifecycle/nonblocking ticks; client guard and disabled server mode.
+- The same twelve behavioral tests passed on the installed game Java runtime as well as JDK 11.
+- Twelve dependency-free behavioral tests: defaults/identity; destination and config validation; UTF-8 configuration persistence; JSON encoding/metrics; CPU normalization/backoff; optional-client list separation and unsafe-list rejection; HTTP contract and tick freshness; HTTP errors/redirect rejection; timeout; scheduler lifecycle/nonblocking ticks; client guard and disabled server mode.
 - Real ServerPanel API integration: existing Release assembly, isolated in-memory HostRegistry and ephemeral loopback listener. A Java heartbeat using the installed game's Java runtime was accepted with HTTP 200. Host identity, category, Healthy state, CPU range, heap value and bridge version were checked.
 - No tests connected to the user's active panel database or started/stopped a game server.
 
 The HTTP client explicitly uses HTTP/1.1; default cleartext HTTP/2 upgrade caused local Java 11 HttpServer test timeouts.
+
+- Sixteen installer assertions passed in isolated temporary directories: embedded JAR, INI/profile/BOM preservation, existing config, repeat/read-only updates, backups, server/client modes, invalid selection rejection, unknown directory protection, locked-settings rollback, late locked-JAR rollback of changed INI/profile and JAR integrity.
+- Live client join without ServerPanelBridge remains unverified; locally inspected ConnectionDetails.writeMods uses GameServer.ServerMods, separate from the loaded runtime list.
+
+- Shipped EXE CLI smoke passed: client installation into a path containing spaces, embedded JAR present, and invalid server selection returns exit code 1.
 
 ## Not yet verified
 

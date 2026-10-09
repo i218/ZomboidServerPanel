@@ -1,7 +1,7 @@
 plugins { id 'java' }
 
 group = 'io.serverpanelbridge'
-version = '0.1.0'
+version = '0.1.1'
 java { sourceCompatibility = JavaVersion.VERSION_11; targetCompatibility = JavaVersion.VERSION_11 }
 tasks.withType(JavaCompile).configureEach {
     options.release = 11
@@ -37,3 +37,8 @@ tasks.register('modZip', Zip) {
     }
 }
 tasks.named('build') { dependsOn stageMod }
+
+tasks.register('installer', Exec) {
+    dependsOn modZip, check
+    commandLine 'powershell.exe', '-NoProfile', '-File', file('installer/build.ps1')
+}

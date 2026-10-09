@@ -28,6 +28,8 @@ public final class Main {
         }
         if (!initialized) {
             initialized = true;
+            try { OptionalClientAdapter.apply(); LOG.info("Client optional mode enabled; server runtime retained"); }
+            catch (Exception error) { LOG.log(Level.SEVERE, "Cannot exclude ServerPanelBridge from client requirements on this game version", error); }
             try {
                 String serverName = PzRuntime.serverName();
                 Path defaultFile = PzRuntime.cacheDirectory().resolve("ServerPanelBridge").resolve(serverName).resolve("ServerPanelBridge.properties");

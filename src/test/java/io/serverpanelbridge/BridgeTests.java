@@ -74,6 +74,23 @@ public final class BridgeTests {
             check(PanelReporter.retrySeconds(5, 30, 1) == 5 && PanelReporter.retrySeconds(5, 30, 3) == 20
                 && PanelReporter.retrySeconds(5, 30, 30) == 30, "bounded backoff");
         });
+        test("optional adapter preserves runtime and other mods", () -> {
+            List<String> loaded = new ArrayList<>(List.of("Other", "ServerPanelBridge"));
+            List<String> advertised = new ArrayList<>(List.of("Other", "ServerPanelBridge", "\\ServerPanelBridge"));
+            OptionalClientAdapter.exclude(advertised, loaded);
+            check(advertised.equals(List.of("Other")) && loaded.contains("ServerPanelBridge"), "own entry only");
+            OptionalClientAdapter.exclude(advertised, loaded);
+            check(advertised.equals(List.of("Other")), "idempotent");
+        });
+        test("optional adapter refuses shared or unloaded lists", () -> {
+            List<String> same = new ArrayList<>(List.of("ServerPanelBridge"));
+            try { OptionalClientAdapter.exclude(same, same); throw new AssertionError("shared list accepted"); }
+            catch (IllegalStateException expected) { }
+            List<String> advertised = new ArrayList<>(List.of("Other", "ServerPanelBridge"));
+            try { OptionalClientAdapter.exclude(advertised, List.of("Other")); throw new AssertionError("unloaded mod accepted"); }
+            catch (IllegalStateException expected) { }
+            check(same.size() == 1 && advertised.size() == 2, "lists unchanged");
+        });
         httpTests();
         test("client bootstrap performs no configuration or reporting", () -> {
             Path temp = Files.createTempDirectory("bridge-client-");
@@ -91,6 +108,7 @@ public final class BridgeTests {
                 zombie.network.GameServer.server = true;
                 Main.onTick();
                 check(field.get(null) == null, "disabled reporting");
+                check(!zombie.network.GameServer.ServerMods.contains("ServerPanelBridge"), "optional even with reporting disabled");
                 check(Files.exists(configDir.resolve("ServerPanelBridge.properties")), "server config");
             } finally {
                 for (Handler h : Logger.getLogger("ServerPanelBridge").getHandlers()) {

@@ -22,20 +22,33 @@ Networking runs on a daemon worker. Panel outages cannot block game ticks. Reque
 
 This release implements **monitoring**. It does not poll or execute start/stop/restart commands. Player counts and Workshop updates need additional fields in ServerPanel and are not sent as unrelated metrics.
 
-## Install
+## Install with one executable
 
-1. Install ZombieBuddy on the dedicated server and complete its Java-mod trust setup.
-2. Extract **ServerPanelBridge-mod.zip** into the dedicated server account's Zomboid mods folder. The result must be:
-   `<Zomboid cachedir>/mods/ServerPanelBridge/42/mod.info`.
-   The archive already contains the compiled JAR.
-3. Add `ServerPanelBridge` to the server INI `Mods=` list after ZombieBuddy. Preserve other entries and the Build 42 backslash syntax used by your server.
-   Example: `Mods=\\ZombieBuddy;\\ServerPanelBridge`.
-4. Start ServerPanel on the same machine, then start the dedicated server.
-5. Look for **Project Zomboid: <serverName>** under **Game servers**.
+1. Close the game and dedicated server.
+2. Run **ServerPanelBridge-Setup.exe**. Administrator rights are not normally needed.
+3. Select the server account's actual Zomboid cachedir and an existing server INI from the list.
+4. Leave dedicated-server setup enabled. Optionally enable the client-list checkbox if you edit server settings through the game.
+5. Click Install, then restart the dedicated server and start ServerPanel on the same machine.
 
-No Steam Workshop item has been published for this project. A local installation does not need a new WorkshopItems entry. Publishing/distributing the item and accepting unsigned Java code are separate deployment steps.
+The executable contains the mod and compiled JAR. It installs the files, enables ZombieBuddy and ServerPanelBridge in the selected INI, creates the runtime config if absent, and verifies written files. Existing runtime configuration and other INI settings are preserved. Updated files are backed up under `<cachedir>/ServerPanelBridge-installer-backups/`; failed writes trigger rollback.
 
-The JAR is unsigned. ZombieBuddy may require approval or an explicit local trust decision before loading it; installing the archive does not bypass that requirement. Players do not need to install the monitoring code.
+ZombieBuddy's Java agent must already be installed, and ServerPanel is installed separately. The installer does not start or stop the game or panel, change WorkshopItems, or bypass ZombieBuddy's trust checks. The JAR remains unsigned.
+
+The default installs only for the dedicated server. The optional client checkbox makes this same local mod available in the client's mod list and enables it in `mods/default.txt`. Players joining the server do not need ServerPanelBridge: after loading, its adapter removes only its own entry from the Build 42 connection's required-mod list, retaining the server runtime and other mods. If that API is unsupported, the log reports the failure; a live join without the mod is still the final compatibility check. ZombieBuddy's own client requirements are unchanged.
+
+CLI for the same executable:
+
+```powershell
+.\ServerPanelBridge-Setup.exe --silent --data-dir "D:/PZData" --server-name "servertest" --mode server
+```
+
+Modes: `server` (default), `client`, `both`. Exit code 0 means success; failures return 1 and write a diagnostic file in Windows Temp. Use a real directory path rather than a junction/symlink.
+
+### Manual alternative
+
+Extract **ServerPanelBridge-mod.zip** into `<cachedir>/mods/`, so that `mods/ServerPanelBridge/42/mod.info` exists. Add the mod after ZombieBuddy in the server INI `Mods=` list, preserving other entries. Example: `Mods=\ZombieBuddy;\ServerPanelBridge`.
+
+No Steam Workshop item has been published for this project; local installation does not need a new WorkshopItems entry.
 
 ## Configuration and logs
 
@@ -81,7 +94,7 @@ No test requires killing the game process. Changing `enabled=false` and restarti
 Use JDK 11 or newer with Gradle 8.7 (Java 11 bytecode):
 
 ```powershell
-.\\gradlew.bat --no-daemon clean build modZip
+.\gradlew.bat --no-daemon clean build installer
 ```
 
 Outputs:
@@ -89,6 +102,7 @@ Outputs:
 - `build/libs/ServerPanelBridge.jar`
 - `42/media/java/ServerPanelBridge.jar`
 - `build/distributions/ServerPanelBridge-mod.zip`
+- `build/distributions/ServerPanelBridge-Setup.exe`
 
 The build runs dependency-free behavioral tests for configuration, encoding, HTTP failures/timeouts, game-tick health, worker lifecycle and client isolation. Test fixtures stay out of the production JAR.
 

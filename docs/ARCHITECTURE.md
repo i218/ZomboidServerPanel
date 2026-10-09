@@ -28,3 +28,9 @@ The existing panel start/stop/restart queue does not imply permission for this m
 Locally inspected PZ Build 42 and ZombieBuddy 2.3.4 APIs are isolated in Main and PzRuntime. Test doubles verify the server guard and disabled mode; they are not proof of game integration. The compiled Java archive contains no test fixtures or third-party runtime dependencies.
 
 TODO: live dedicated-server launch with ZombieBuddy approval; verify custom cachedir deployment and host appearance in the native panel UI. No game or active user panel is started or stopped by the automated tests.
+
+## Optional client installation (0.1.1)
+
+On the first dedicated-server tick OptionalClientAdapter verifies that the advertised GameServer.ServerMods list differs from ZomboidFileSystem.getModIDs(), then excludes only ServerPanelBridge from the advertised list. The loaded runtime list, server INI, Workshop downloads and other mods are untouched. This also runs with monitoring disabled. No checksum bypass is introduced; the mod contains no shared/client Lua or gameplay resources. A live client join remains a deployment check.
+
+The standalone .NET Framework Windows installer embeds the full mod ZIP and compiled JAR. It writes individual files atomically with backups and rollback, preserving the existing mod directory and runtime config. The optional client checkbox enables discovery through the game; it does not make installation mandatory for connecting players.

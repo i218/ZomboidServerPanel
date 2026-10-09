@@ -22,20 +22,31 @@ Online и Degraded могут отображаться одновременно:
 
 Этот выпуск реализует **мониторинг**. Команды запуска, остановки и перезапуска пока не исполняются. Для игроков и обновлений Workshop в API панели ещё нет отдельных полей.
 
-## Установка
+## Один установщик
 
-1. Установи ZombieBuddy на dedicated server и настрой доверие к Java-модам.
-2. Распакуй **ServerPanelBridge-mod.zip** в папку mods используемого сервером Zomboid cachedir.
-   Итоговый путь: `<Zomboid cachedir>/mods/ServerPanelBridge/42/mod.info`.
-   Собранный JAR уже внутри.
-3. Добавь `ServerPanelBridge` в `Mods=` серверного INI после ZombieBuddy, сохранив остальные моды и синтаксис Build 42.
-   Пример: `Mods=\\ZombieBuddy;\\ServerPanelBridge`.
-4. Запусти ServerPanel на той же машине, затем dedicated server.
-5. Найди **Project Zomboid: <имя сервера>** в категории **Game servers**.
+1. Закрой игру и dedicated server.
+2. Запусти **ServerPanelBridge-Setup.exe**. Админка обычно не нужна.
+3. Укажи фактическую папку данных Zomboid (cachedir) серверного пользователя и выбери существующий сервер.
+4. Оставь включённой настройку dedicated server. Если составляешь серверный INI через клиент, можно отметить включение в клиентском списке модов.
+5. Нажми «Установить», затем запусти сервер и ServerPanel на той же машине.
 
-Предмет Steam Workshop пока не опубликован. Для локальной установки новая запись WorkshopItems не нужна.
+В EXE уже встроены мод и собранный JAR. Установщик распакует файлы, добавит ZombieBuddy и ServerPanelBridge в выбранный INI, создаст отсутствующий runtime-конфиг и проверит записанные файлы. Существующий конфиг и остальные настройки сохраняются. Резервные копии — в `<cachedir>/ServerPanelBridge-installer-backups/`. При ошибке записи выполняется откат.
 
-JAR пока без подписи. ZombieBuddy может потребовать подтверждение или настройку локального доверия; распаковка архива не заменяет этот шаг. Игрокам устанавливать код мониторинга не требуется.
+ZombieBuddy Java agent должен быть установлен заранее; ServerPanel устанавливается отдельно. Установщик не запускает и не останавливает приложения, не меняет WorkshopItems и не обходит доверие ZombieBuddy. JAR остаётся неподписанным.
+
+По умолчанию установка только серверная. Клиентская галочка необязательна: она включает этот же локальный мод в `mods/default.txt`, чтобы удобнее было составлять настройки через игру.
+
+**Подключающимся игрокам ServerPanelBridge не нужен.** После загрузки адаптер удаляет только его запись из списка обязательных клиентских модов Build 42; серверный код и остальные моды сохраняются. Если API несовместим, в логе будет ошибка. Реальное подключение без мода ещё нужно проверить на сервере. Требования самого ZombieBuddy к клиентам остаются прежними.
+
+Для автоматической установки:
+
+```powershell
+.\ServerPanelBridge-Setup.exe --silent --data-dir "D:/PZData" --server-name "servertest" --mode server
+```
+
+Режимы: `server` (по умолчанию), `client`, `both`. Успех — код 0, ошибка — код 1 и диагностический файл в Windows Temp. Для пути используй фактическую папку, не junction/symlink.
+
+Ручная альтернатива: распаковать **ServerPanelBridge-mod.zip** в `<cachedir>/mods/` и добавить мод после ZombieBuddy в `Mods=`. Предмет Steam Workshop пока не опубликован.
 
 ## Настройки
 
@@ -81,8 +92,10 @@ JAR пока без подписи. ZombieBuddy может потребоват�
 Нужны JDK 11 или новее и Gradle 8.7:
 
 ```powershell
-.\\gradlew.bat --no-daemon clean build modZip
+.\gradlew.bat --no-daemon clean build installer
 ```
+
+Единый установщик: `build/distributions/ServerPanelBridge-Setup.exe`.
 
 Архив с готовым JAR: `build/distributions/ServerPanelBridge-mod.zip`.
 
