@@ -1,6 +1,6 @@
 # Integration boundaries
 
-ZombieBuddy registers LuaBridge under the distinct alias ServerPanelBridge. Only dedicated-server ticks initialize the bridge. PzRuntime isolates game reflection. PanelReporter supplies heartbeat data from JVM APIs on its own daemon thread. OptionalClientAdapter removes only the advertised core-mod ID after loading.
+ZombieBuddy registers LuaBridge under the distinct alias ServerPanelBridge. Dedicated-server OnServerStarted initializes the bridge; OnTickEvenPaused maintains monitoring and command dispatch even when PauseEmpty pauses simulation. PzRuntime isolates game reflection. PanelReporter supplies heartbeat data from JVM APIs on its own daemon thread. OptionalClientAdapter removes only the advertised core-mod ID after loading, before the server handles connections. It rechecks every five seconds, including disabled-reporting mode, and retries failed exclusions with bounded logging. The loaded runtime list remains intact.
 
 ServerPanelBridgeMenu is an optional local administrator component kept outside the core mod, so its client Lua is not included in server checksums. The installer enables it in the client profile only. Its MLOS adapter retains installed local ServerPanelBridge without inventing a Workshop ID.
 

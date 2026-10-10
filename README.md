@@ -11,7 +11,7 @@ The server appears in ServerPanel under **Game servers**, with a heartbeat every
 | Metric | Meaning |
 | --- | --- |
 | Online | ServerPanel received a recent heartbeat |
-| Health | Healthy while server ticks continue; Degraded after 20 seconds without a tick |
+| Health | Healthy while server-loop callbacks continue, including empty-server pause; Degraded after 20 seconds without a callback |
 | CPU | JVM process CPU, normalized across logical processors; first sample is zero |
 | Memory | Used JVM heap in MiB, not total process memory |
 | Uptime | JVM uptime |
@@ -52,7 +52,7 @@ No Steam Workshop item has been published for this project; local installation d
 
 ## Configuration and logs
 
-On the first dedicated-server tick the mod creates:
+At dedicated-server startup the mod creates:
 
 ```text
 <Zomboid cachedir>/ServerPanelBridge/<serverName>/ServerPanelBridge.properties
@@ -112,7 +112,7 @@ See [VERIFICATION.md](VERIFICATION.md) for validation evidence and [docs/ARCHITE
 
 Adapters use the locally verified Build 42 API: `GameServer.server`, `GameServer.serverName`, and `ZomboidFileSystem.instance.getCacheDir()`. ZombieBuddy registration uses `Exposer.exposeClass(Class, String)`.
 
-The JAR uses the neutral `42/media/java/` path because early ZombieBuddy environment detection can skip the server-specific Java directory. Server Lua ticks and the Java dedicated-server guard prevent client reporting. An unsupported API disables initialization and logs an error.
+The JAR uses the neutral `42/media/java/` path because early ZombieBuddy environment detection can skip the server-specific Java directory. Server Lua callbacks and the Java dedicated-server guard prevent client reporting. An unsupported API disables initialization and logs an error.
 
 A live dedicated-server launch remains the final deployment check; a successful build or API test does not establish that ZombieBuddy accepted the unsigned JAR.
 
@@ -144,3 +144,25 @@ The panel acknowledgement means **shutdown was requested**, not that saving or p
 Start and restart are explicitly rejected: starting a stopped JVM requires ServerPanel's local process management or another supervisor. commandsEnabled=false disables command polling; enabled=false disables both reporting and command processing. Nothing invokes kill, System.exit or a shell.
 
 The journal is stored beside the runtime config in commands/. It retains up to 1,000 command outcomes without lease tokens. An uncertain reserved command is not automatically replayed; send a new command after checking the server. Preserve the journal when updating.
+
+## Client optional mode (0.2.1)
+
+Update the server with the new installer, then fully restart the dedicated server. Ordinary joining players do not need this mod or its menu component. Keep ServerPanelBridge in the server INI; keep ServerPanelBridgeMenu out of it.
+
+The adapter now runs on OnServerStarted before connections are handled, and on OnTickEvenPaused afterward. With PauseEmpty=true, normal OnTick does not run on an empty paused server; waiting for it left the mod mandatory for the first client. Paused callbacks also allow opted-in Stop commands to run on an empty server. The required-mod exclusion is rechecked every five seconds, independently of whether reporting is enabled.
+
+Check the server startup log for:
+
+```text
+[ServerPanelBridge] Client optional mode confirmed: ServerPanelBridge removed from required mod list
+```
+
+If that line is absent, check the preceding ZombieBuddy/bridge errors. This fix preserves other required mods and does not disable game checksums. A join from a client without ServerPanelBridge remains the deployment check.
+
+To run the isolated native bridge/handshake regression test after building (requires installed Build 42 and ZombieBuddy):
+
+```powershell
+.\installer\test-bridge.ps1 -GameDirectory "<ProjectZomboid directory>" -ZombieBuddyJar "<ZombieBuddy.jar path>"
+```
+
+The test uses temporary configuration with reporting disabled. It does not launch or stop a game server or modify installed mods.

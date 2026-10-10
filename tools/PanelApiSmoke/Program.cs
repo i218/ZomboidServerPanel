@@ -28,7 +28,7 @@ catch { if (!child.HasExited) child.Kill(); throw; } // only this test child
 if (child.ExitCode != 0) throw new InvalidOperationException("Java heartbeat failed");
 var host = registry.GetHost("pz-integration-test") ?? throw new InvalidOperationException("No registered host");
 if (host.Name != "Dedicated integration test" || host.Category != "Game servers" ||
-    host.Health != "Healthy" || host.Version != "ServerPanelBridge 0.2.0" ||
+    host.Health != "Healthy" || host.Version != "ServerPanelBridge 0.2.1" ||
     host.CpuPercent < 0 || host.CpuPercent > 100 || host.MemoryMb <= 0)
     throw new InvalidOperationException("Unexpected heartbeat values");
 var history = registry.GetCommandHistory("pz-integration-test");

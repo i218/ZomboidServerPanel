@@ -1,4 +1,4 @@
-# Verification — 2026-10-09
+# Verification — 2026-10-10
 
 ## Passed
 
@@ -45,3 +45,9 @@ Nineteen installer assertions cover the existing checks plus automatic menu depl
 Eighteen control assertions cover strict JSON, occupied/empty-server policy, client guard, disabled controls, game-thread dispatch, duplicate delivery, durable replay protection with new lease tokens, start/restart rejection, expired leases, uncertain reservations, journal failure, oversized responses, bounded response-body timeout, and no persisted lease tokens.
 
 The real existing ServerPanel API was tested with an isolated in-memory registry and temporary loopback port. It leased start/stop/restart commands to the Java bridge; stop with a simulated game adapter was acknowledged and unsupported actions were marked Failed. No actual game server was stopped or started, and no active panel data was modified.
+
+## 0.2.1 client requirement regression
+
+The twelve monitoring assertions and eighteen command assertions passed again. A new isolated test uses the installed Build 42 game JAR, game Java runtime, actual ZombieBuddy Exposer and Kahlua interpreter. Only game-state lists/flags are fixtures. It verifies real Lua exposure, client guard without runtime files, OnServerStarted and OnTickEvenPaused callback registration/execution, and the actual native ConnectionDetails.writeMods serializer. Before startup the fixture packet contains two required IDs; after startup it contains only the other mod, while the server runtime still retains ServerPanelBridge. Restoring the advertised ID is repaired by the paused callback at the next exclusion check.
+
+This tests native packet construction and lifecycle wiring, not a live multiplayer join. No live server was launched or stopped. Reproduce with installer/test-bridge.ps1 after building. Update the server with the bundled installer and fully restart it before testing a client without the mod.
