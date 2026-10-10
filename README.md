@@ -20,7 +20,7 @@ Online alone does not prove the game loop is responsive. A running reporter can 
 
 Networking runs on a daemon worker. Panel outages cannot block game ticks. Requests have a two-second timeout; retries back off to 30 seconds and recover automatically.
 
-This release implements **monitoring and opt-in graceful stop**. Start and restart are explicitly rejected. Player counts and Workshop updates need additional fields in ServerPanel and are not sent as unrelated metrics.
+This release implements **monitoring, opt-in graceful stop and restart**. Start still requires an external supervisor. Player counts and Workshop updates need additional fields in ServerPanel and are not sent as unrelated metrics.
 
 ## Install with one executable
 
@@ -141,7 +141,7 @@ Commands are polled every five seconds on a separate worker. Stop runs on the ga
 
 The panel acknowledgement means **shutdown was requested**, not that saving or process exit has completed. The host should later become offline. The process may exit before acknowledgement reaches the panel; an on-disk command journal prevents the same command stopping a subsequent server session.
 
-Start and restart are explicitly rejected: starting a stopped JVM requires ServerPanel's local process management or another supervisor. commandsEnabled=false disables command polling; enabled=false disables both reporting and command processing. Nothing invokes kill, System.exit or a shell.
+Start is explicitly rejected: starting a stopped JVM requires ServerPanel's local process management or another supervisor. Restart is available with the bundled helper as described below. commandsEnabled=false disables command polling; enabled=false disables both reporting and command processing. The server is never killed or terminated with System.exit. On Windows a fixed PowerShell WMI query reads the original process arguments; no configurable shell command is executed.
 
 The journal is stored beside the runtime config in commands/. It retains up to 1,000 command outcomes without lease tokens. An uncertain reserved command is not automatically replayed; send a new command after checking the server. Preserve the journal when updating.
 
@@ -166,3 +166,29 @@ To run the isolated native bridge/handshake regression test after building (requ
 ```
 
 The test uses temporary configuration with reporting disabled. It does not launch or stop a game server or modify installed mods.
+## Restart (0.3.0)
+
+The same installer and JAR now include a one-shot restart helper. In the active server configuration set:
+
+```properties
+commandsEnabled=true
+restartEnabled=true
+restartExitTimeoutSeconds=180
+stopWhenPlayersOnline=false
+```
+
+Fully restart the server after updating/editing the config, then use Restart in ServerPanel. restartEnabled defaults to false and is independent of stopEnabled. Both actions share the player policy: a nonempty server refuses shutdown unless stopWhenPlayersOnline=true. No countdown or player announcement is implemented.
+
+The worker first captures the current Java executable, original arguments, working directory and process identity, and starts a separate lightweight helper JVM from the bundled JAR. Once ready, the game thread requests normal QueueQuit and arms the helper with a one-byte pipe message. The helper waits for that exact process to exit, then launches one replacement JVM. If it fails to exit within restartExitTimeoutSeconds (10–600), restart is cancelled; the helper never kills it. Preparation/lease/player-policy failures leave the server running and cancel the helper.
+
+Original launch parameters are passed through a private pipe, not written to scripts or journals. Windows uses a fixed, bounded PowerShell/CIM query because ProcessHandle omits arguments there; parsing follows [Microsoft's Windows argument rules](https://learn.microsoft.com/en-us/cpp/c-language/parsing-c-command-line-arguments?view=msvc-170). Java exposes process metadata as optional values ([Java API](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/ProcessHandle.Info.html)); unavailable metadata causes refusal before shutdown. A direct Java launch with zombie.network.GameServer is required. Argument files (`@...`) and literal double quotes inside decoded arguments are refused, because they cannot safely be replayed by this implementation. Spaces, Unicode paths and trailing backslashes were tested.
+
+Do not combine this helper with an external supervisor's automatic restart: let one component own relaunch. Managed process trees/jobs may terminate child helpers; use the supervisor's restart in that setup. The helper inherits the server account and environment. Replacement output is appended to restart-console.log beside the runtime config; helper results go to restart-helper.log. These files do not rotate automatically. The relaunched server has no interactive console input; use the panel or normal game administration.
+
+A successful panel acknowledgement means shutdown was queued and the helper was armed, not that saving or the new startup completed. Check the replacement server logs and returning heartbeat. If the JVM exits before acknowledgement, the existing durable journal prevents replay; an uncertain command must not automatically restart the next session. Start remains outside the mod.
+
+Isolated process test (no real game server is started):
+
+```powershell
+.\installer\test-restart.ps1 -JavaExecutable "<game jre64/bin/java.exe>"
+```

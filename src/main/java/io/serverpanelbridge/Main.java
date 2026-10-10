@@ -51,7 +51,7 @@ public final class Main {
                         commands.start();
                     }
                 }
-                LOG.info("Monitoring " + (config.enabled ? "enabled" : "disabled") + "; hostId=" + config.hostId + "; commandsEnabled=" + config.commandsEnabled + "; stopEnabled=" + config.stopEnabled);
+                LOG.info("Monitoring " + (config.enabled ? "enabled" : "disabled") + "; hostId=" + config.hostId + "; commandsEnabled=" + config.commandsEnabled + "; stopEnabled=" + config.stopEnabled + "; restartEnabled=" + config.restartEnabled);
             } catch (Exception error) { LOG.log(Level.SEVERE, "Monitoring initialization failed; retry requires server restart", error); }
         }
         long now = System.nanoTime();

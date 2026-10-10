@@ -15,6 +15,8 @@ registry.RecordHeartbeat("pz-integration-test", new HeartbeatRequest("Test host"
 registry.EnqueueCommand("pz-integration-test", "start");
 registry.EnqueueCommand("pz-integration-test", "stop");
 registry.EnqueueCommand("pz-integration-test", "restart");
+registry.RecordHeartbeat("pz-restart-integration-test", new HeartbeatRequest("Restart test host"));
+registry.EnqueueCommand("pz-restart-integration-test", "restart");
 var processInfo = new ProcessStartInfo(args[0]) { UseShellExecute = false };
 processInfo.ArgumentList.Add("-cp");
 processInfo.ArgumentList.Add(Path.Combine(args[1], "build/classes/java/main") + Path.PathSeparator
@@ -28,11 +30,13 @@ catch { if (!child.HasExited) child.Kill(); throw; } // only this test child
 if (child.ExitCode != 0) throw new InvalidOperationException("Java heartbeat failed");
 var host = registry.GetHost("pz-integration-test") ?? throw new InvalidOperationException("No registered host");
 if (host.Name != "Dedicated integration test" || host.Category != "Game servers" ||
-    host.Health != "Healthy" || host.Version != "ServerPanelBridge 0.2.1" ||
+    host.Health != "Healthy" || host.Version != "ServerPanelBridge 0.3.0" ||
     host.CpuPercent < 0 || host.CpuPercent > 100 || host.MemoryMb <= 0)
     throw new InvalidOperationException("Unexpected heartbeat values");
 var history = registry.GetCommandHistory("pz-integration-test");
 if(history.Count != 3 || history.Single(c => c.Action == "stop").Status != "Acknowledged" || history.Where(c => c.Action != "stop").Any(c => c.Status != "Failed"))
     throw new InvalidOperationException("Unexpected command results");
-Console.WriteLine("PASS actual ServerPanel API: lease-token acknowledgement and stop outcome; unsupported start/restart rejected");
+if(registry.GetCommandHistory("pz-restart-integration-test").Single().Status != "Acknowledged")
+    throw new InvalidOperationException("Enabled restart was not acknowledged");
+Console.WriteLine("PASS actual ServerPanel API: stop and enabled restart acknowledged; start and disabled restart rejected");
 Console.WriteLine("PASS actual ServerPanel API: Java heartbeat registered, category/health/CPU/heap accepted; temporary loopback listener, memory storage.");

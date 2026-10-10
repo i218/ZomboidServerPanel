@@ -17,6 +17,10 @@ public final class ControlTests {
     public static void main(String[] args) throws Exception {
         fails(()->Json.parse("{\"id\":1,\"id\":2}")); fails(()->Json.parse("[1,]")); fails(()->Json.parse("true x"));
         check(((Map<?,?>)Json.parse("{\"escaped\":\"a\\n\\u0041\",\"extra\":null}")).get("escaped").equals("a\nA"),"strict JSON escapes and invalid input refusal");
+        check(WindowsLaunch.parse("\"C:\\Java Path\\java.exe\" \"a b\" \"\" tail\\").equals(List.of("C:\\Java Path\\java.exe","a b","","tail\\")),"Windows arguments preserve spaces, empty values and trailing slashes");
+        check(WindowsLaunch.parse("java.exe \"ab\\\"c\" \"\\\\\" d").equals(List.of("java.exe","ab\"c","\\","d")),"Windows arguments preserve escaped quotes and slashes");
+        fails(()->WindowsLaunch.parse("java.exe \"unfinished"));
+        check(RestartHelper.parent(ProcessHandle.current().pid(),Instant.EPOCH)==null,"restart rejects reused or mismatched parent identity");
         zombie.network.GameServer.server=true;
         zombie.network.GameServer.players=1;
         fails(()->new PzShutdownAdapter(false).requestStop());
@@ -74,7 +78,7 @@ public final class ControlTests {
                 commands.set("["+command("first","stop","newToken",future)+"]");service.pollOnce();service.onGameTick();
                 check(stops.get()==1 && ack.get().contains("newToken"),"restart journal prevents replay and uses new lease token");
                 commands.set("["+command("start","start","s",future)+","+command("restart","restart","r",future)+"]");service.pollOnce();service.onGameTick();
-                check(stops.get()==1 && ack.get().contains("Unsupported action"),"start and restart rejected");
+                check(stops.get()==1 && ack.get().contains("restartEnabled=false"),"restart disabled by default and start rejected");
             }
             try(CommandService service=new CommandService(new BridgeConfig(p,"test"),root.resolve("expired"),stops::incrementAndGet,now::get,log)) {
                 commands.set("["+command("expire","stop","x",future)+"]");service.pollOnce();now.set(future+1);service.onGameTick();service.pollOnce();
@@ -102,6 +106,54 @@ public final class ControlTests {
             try(CommandService service=new CommandService(new BridgeConfig(p,"test"),root.resolve("timeout"),stops::incrementAndGet,now::get,log)) {
                 long start=System.nanoTime();fails(service::pollOnce);
                 check(System.nanoTime()-start<java.util.concurrent.TimeUnit.SECONDS.toNanos(3),"command body timeout is bounded after headers");
+            }
+            bodyDelay.set(0);p.setProperty("requestTimeoutSeconds","5");
+            p.setProperty("restartEnabled","true");
+            AtomicInteger prepared=new AtomicInteger(),armed=new AtomicInteger(),cancelled=new AtomicInteger();
+            RestartAdapter restart=()-> {prepared.incrementAndGet();return new RestartAdapter.Prepared() {
+                boolean active;
+                public void arm(){active=true;armed.incrementAndGet();}
+                public void close(){if(!active)cancelled.incrementAndGet();}
+            };};
+            int stopBefore=stops.get();
+            Path restartJournal=root.resolve("restart-enabled");
+            commands.set("["+command("restart-once","restart","rr",now.get()+30000)+"]");
+            try(CommandService service=new CommandService(new BridgeConfig(p,"test"),restartJournal,stops::incrementAndGet,restart,now::get,log)) {
+                service.pollOnce();service.pollOnce();
+                check(prepared.get()==1 && armed.get()==0 && stops.get()==stopBefore,"restart prepared off game thread without premature shutdown");
+                service.onGameTick();service.pollOnce();
+                check(armed.get()==1 && stops.get()==stopBefore+1 && ack.get().contains("Restart armed"),"restart arms once after graceful stop with lease acknowledgement");
+            }
+            try(CommandService service=new CommandService(new BridgeConfig(p,"test"),restartJournal,stops::incrementAndGet,restart,now::get,log)) {
+                service.pollOnce();service.onGameTick();
+                check(prepared.get()==1 && armed.get()==1,"restart outcome prevents replay across JVM sessions");
+            }
+            try(CommandService service=new CommandService(new BridgeConfig(p,"test"),root.resolve("restart-refused"),()->{throw new IllegalStateException("Occupied");},restart,now::get,log)) {
+                commands.set("["+command("refused","restart","rf",now.get()+30000)+"]");service.pollOnce();service.onGameTick();service.pollOnce();
+                check(armed.get()==1 && cancelled.get()==1 && ack.get().contains("server was not stopped"),"player-policy refusal cancels prepared restart");
+            }
+            try(CommandService service=new CommandService(new BridgeConfig(p,"test"),root.resolve("restart-prepare-failed"),stops::incrementAndGet,()->{throw new java.io.IOException("secret launch parameter");},now::get,log)) {
+                commands.set("["+command("prepare-failed","restart","pf",now.get()+30000)+"]");service.pollOnce();service.onGameTick();
+                check(stops.get()==stopBefore+1 && ack.get().contains("preparation failed") && !ack.get().contains("secret"),"failed restart preparation keeps server running and redacts arguments");
+            }
+            try(CommandService service=new CommandService(new BridgeConfig(p,"test"),root.resolve("restart-expired"),stops::incrementAndGet,restart,now::get,log)) {
+                long expires=now.get()+30000;commands.set("["+command("restart-expired","restart","re",expires)+"]");service.pollOnce();now.set(expires+1);service.onGameTick();
+                check(armed.get()==1 && stops.get()==stopBefore+1 && cancelled.get()==2,"expired restart lease cancels helper without shutdown");
+            }
+            now.set(System.currentTimeMillis());
+            try(CommandService service=new CommandService(new BridgeConfig(p,"test"),root.resolve("helper-dead"),stops::incrementAndGet,()->new RestartAdapter.Prepared(){
+                public void validate(){throw new IllegalStateException("Helper exited");}
+                public void arm(){throw new AssertionError("Must not arm dead helper");}
+                public void close(){}
+            },now::get,log)) {
+                commands.set("["+command("dead-helper","restart","dh",now.get()+30000)+"]");service.pollOnce();service.onGameTick();service.pollOnce();
+                check(stops.get()==stopBefore+1 && ack.get().contains("Helper exited"),"dead prepared helper refuses shutdown before QueueQuit");
+            }
+            Path armFailure=root.resolve("arm-failed");
+            RestartAdapter broken=()->new RestartAdapter.Prepared(){public void arm(){throw new IllegalStateException("Pipe unavailable");}public void close(){}};
+            try(CommandService service=new CommandService(new BridgeConfig(p,"test"),armFailure,stops::incrementAndGet,broken,now::get,log)) {
+                commands.set("["+command("arm-failed","restart","af",now.get()+30000)+"]");service.pollOnce();service.onGameTick();service.pollOnce();
+                check(stops.get()==stopBefore+2 && ack.get().contains("shutdown was already queued") && ack.get().contains("\"succeeded\":false"),"arming failure explicitly reports queued shutdown without claiming restart success");
             }
             String records=Files.readString(journal.resolve("first.properties"));
             check(!records.contains("token1") && !records.contains("newToken"),"journal contains no lease tokens");

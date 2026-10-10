@@ -7,15 +7,17 @@ import java.nio.file.*;
 import java.util.Properties;
 
 public final class BridgeConfig {
-    public final boolean enabled, commandsEnabled, stopEnabled, stopWhenPlayersOnline;
+    public final boolean enabled, commandsEnabled, stopEnabled, stopWhenPlayersOnline, restartEnabled;
     public final URI heartbeatUri;
     public final String hostId, hostName, category, environment, address;
-    public final int heartbeatSeconds, timeoutSeconds, staleTickSeconds, maxRetrySeconds;
+    public final int heartbeatSeconds, timeoutSeconds, staleTickSeconds, maxRetrySeconds, restartExitTimeoutSeconds;
 
     public BridgeConfig(Properties values, String serverName) {
         enabled = bool(values, "enabled", true);
         commandsEnabled = bool(values, "commandsEnabled", true);
         stopEnabled = bool(values, "stopEnabled", false);
+        restartEnabled = bool(values, "restartEnabled", false);
+        restartExitTimeoutSeconds = integer(values, "restartExitTimeoutSeconds", 180, 10, 600);
         stopWhenPlayersOnline = bool(values, "stopWhenPlayersOnline", false);
         String base = values.getProperty("panelUrl", "http://127.0.0.1:5088").trim();
         URI uri = URI.create(base);
@@ -46,7 +48,7 @@ public final class BridgeConfig {
             Files.createDirectories(path.toAbsolutePath().getParent());
             String defaults = "enabled=true\npanelUrl=http://127.0.0.1:5088\nhostId=\nhostName=\ncategory=Game servers\n" +
                 "environment=Production\naddress=Local dedicated server\nheartbeatSeconds=5\nrequestTimeoutSeconds=2\n" +
-                "staleTickSeconds=20\nmaxRetrySeconds=30\ncommandsEnabled=true\nstopEnabled=false\nstopWhenPlayersOnline=false\n";
+                "staleTickSeconds=20\nmaxRetrySeconds=30\ncommandsEnabled=true\nstopEnabled=false\nstopWhenPlayersOnline=false\nrestartEnabled=false\nrestartExitTimeoutSeconds=180\n";
             Files.writeString(path, defaults, StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
         }
         return new BridgeConfig(values, serverName);
