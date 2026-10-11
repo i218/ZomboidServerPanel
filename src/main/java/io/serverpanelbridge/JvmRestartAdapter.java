@@ -7,8 +7,9 @@ import java.util.concurrent.*;
 
 /** Relays launch arguments through a private pipe, never a persisted script or shell. */
 public final class JvmRestartAdapter implements RestartAdapter {
-    private final Path logs; private final int timeout;
-    public JvmRestartAdapter(Path logs, int timeout) { this.logs=logs;this.timeout=timeout; }
+    private final Path logs; private final int timeout, portWait;
+    public JvmRestartAdapter(Path logs, int timeout) {this(logs,timeout,30);}
+    public JvmRestartAdapter(Path logs,int timeout,int portWait) {this.logs=logs;this.timeout=timeout;this.portWait=portWait;}
     public Prepared prepare() throws Exception {
         if(!PzRuntime.isDedicatedServer()) throw new IllegalStateException("Not a dedicated server");
         ProcessHandle parent=ProcessHandle.current(); ProcessHandle.Info info=parent.info();
@@ -29,6 +30,7 @@ public final class JvmRestartAdapter implements RestartAdapter {
         Path directory=Paths.get(System.getProperty("user.dir")).toRealPath();
         Path jar=Paths.get(RestartHelper.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toAbsolutePath();
         if(!Files.isRegularFile(jar)) throw new IllegalStateException("Restart requires the installed mod JAR");
+        int[] ports=UdpPorts.gamePorts();
         Files.createDirectories(logs);
         Process helper=new ProcessBuilder(executable,"-cp",jar.toString(),RestartHelper.class.getName())
             .directory(directory.toFile()).redirectError(ProcessBuilder.Redirect.appendTo(logs.resolve("restart-helper.log").toFile())).start();
@@ -37,6 +39,7 @@ public final class JvmRestartAdapter implements RestartAdapter {
         try {
             input.writeLong(parent.pid());input.writeUTF(started.toString());input.writeInt(timeout);
             input.writeUTF(directory.toString());input.writeUTF(logs.resolve("restart-console.log").toAbsolutePath().toString());
+            input.writeInt(portWait);input.writeInt(ports.length);for(int port:ports) input.writeInt(port);
             input.writeUTF(executable);input.writeInt(arguments.length);
             for(String argument:arguments) input.writeUTF(argument);
             input.flush();

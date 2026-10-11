@@ -192,3 +192,15 @@ Isolated process test (no real game server is started):
 ```powershell
 .\installer\test-restart.ps1 -JavaExecutable "<game jre64/bin/java.exe>"
 ```
+## Restart diagnostics (0.3.1)
+
+restart-helper.log now records dated stages, the replacement PID, and its eventual exit code in decimal and hexadecimal. A process still alive after ten seconds is reported as running, not ready. The helper remains alongside the replacement only to observe exit; it does not retry or terminate it. Console output permissions are checked before shutdown, and cancellation/arming failures have explicit stage messages without launch arguments.
+
+If the console log stops during loading and the host never appears, distinguish an exited process from one still loading or stuck. The panel heartbeat starts after server-loop initialization. A log ending at LOADING ASSETS: START alone proves neither crash nor readiness. Preserve restart-helper.log, restart-console.log and the game's latest server DebugLog; for native crashes also inspect hs_err_pid*.log in the game's working directory. Do not launch a second server against the same save/ports until the replacement PID is checked.
+After the original process exits, the helper checks the effective GameServer.defaultPort and GameServer.udpPort with exclusive UDP wildcard bind probes. It waits up to 30 seconds for release and cancels launch if either cannot be bound. On Windows, occupied-port diagnostics include ownerPid when Get-NetUDPEndpoint is available. The helper never stops that owner or changes ports. Unknown/invalid game port fields refuse preparation before shutdown. The check is conservative and does not reserve ports: another launcher can still claim them during game loading. Use a single restart owner.
+
+Connection Startup Failed. Code: 5 corresponds to SOCKET_PORT_ALREADY_IN_USE in [RakNet's startup result enum](https://github.com/facebookarchive/RakNet/blob/master/Source/RakNetTypes.h). Check ownerPid in restart-helper.log on the dedicated machine. A cancelled restart leaves the old server stopped; resolve the port conflict before starting it again.
+
+After the original process exits, the helper checks the effective GameServer.defaultPort and GameServer.udpPort with exclusive UDP wildcard bind probes. It waits up to 30 seconds for release and cancels launch if either cannot be bound. On Windows, occupied-port diagnostics include ownerPid when Get-NetUDPEndpoint is available. The helper never stops that owner or changes ports. Unknown/invalid game port fields refuse preparation before shutdown. The check is conservative and does not reserve ports: another launcher can still claim them during game loading. Use a single restart owner.
+
+Connection Startup Failed. Code: 5 corresponds to SOCKET_PORT_ALREADY_IN_USE in [RakNet's startup result enum](https://github.com/facebookarchive/RakNet/blob/master/Source/RakNetTypes.h). Check ownerPid in restart-helper.log on the dedicated machine. A cancelled restart leaves the old server stopped; resolve the port conflict before starting it again.
