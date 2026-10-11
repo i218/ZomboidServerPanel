@@ -1,7 +1,7 @@
 plugins { id 'java' }
 
 group = 'io.serverpanelbridge'
-version = '0.3.1'
+version = '0.3.2'
 java { sourceCompatibility = JavaVersion.VERSION_11; targetCompatibility = JavaVersion.VERSION_11 }
 tasks.withType(JavaCompile).configureEach {
     options.release = 11
@@ -50,3 +50,14 @@ tasks.register('controlTest', JavaExec) {
     mainClass = 'io.serverpanelbridge.ControlTests'
 }
 tasks.named('check') { dependsOn controlTest }
+
+// Embed the Windows handle-isolation launcher; installation needs no compiler.
+def launcherResources = layout.buildDirectory.dir('generated/launcher-resources')
+sourceSets.main.resources.srcDir launcherResources
+tasks.register('windowsRestartLauncher', Exec) {
+    onlyIf { System.getProperty('os.name').startsWith('Windows') }
+    inputs.files('windows/RestartLauncher.cs', 'windows/build.ps1')
+    outputs.file(launcherResources.map { it.file('windows/RestartLauncher.exe') })
+    commandLine 'powershell.exe', '-NoProfile', '-File', file('windows/build.ps1'), '-Destination', launcherResources.get().file('windows/RestartLauncher.exe').asFile
+}
+tasks.named('processResources') { dependsOn 'windowsRestartLauncher' }

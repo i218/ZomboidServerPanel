@@ -32,8 +32,10 @@ public final class JvmRestartAdapter implements RestartAdapter {
         if(!Files.isRegularFile(jar)) throw new IllegalStateException("Restart requires the installed mod JAR");
         int[] ports=UdpPorts.gamePorts();
         Files.createDirectories(logs);
-        Process helper=new ProcessBuilder(executable,"-cp",jar.toString(),RestartHelper.class.getName())
-            .directory(directory.toFile()).redirectError(ProcessBuilder.Redirect.appendTo(logs.resolve("restart-helper.log").toFile())).start();
+        ProcessBuilder launcher=System.getProperty("os.name", "").startsWith("Windows")
+            ?WindowsRestartLauncher.helper(logs,parent.pid(),executable,jar)
+            :new ProcessBuilder(executable,"-cp",jar.toString(),RestartHelper.class.getName());
+        Process helper=launcher.directory(directory.toFile()).redirectError(ProcessBuilder.Redirect.appendTo(logs.resolve("restart-helper.log").toFile())).start();
         DataOutputStream input=new DataOutputStream(helper.getOutputStream());
         ExecutorService reader=Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"ServerPanelBridge-RestartReady");t.setDaemon(true);return t;});
         try {

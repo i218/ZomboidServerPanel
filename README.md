@@ -204,3 +204,19 @@ Connection Startup Failed. Code: 5 corresponds to SOCKET_PORT_ALREADY_IN_USE in 
 After the original process exits, the helper checks the effective GameServer.defaultPort and GameServer.udpPort with exclusive UDP wildcard bind probes. It waits up to 30 seconds for release and cancels launch if either cannot be bound. On Windows, occupied-port diagnostics include ownerPid when Get-NetUDPEndpoint is available. The helper never stops that owner or changes ports. Unknown/invalid game port fields refuse preparation before shutdown. The check is conservative and does not reserve ports: another launcher can still claim them during game loading. Use a single restart owner.
 
 Connection Startup Failed. Code: 5 corresponds to SOCKET_PORT_ALREADY_IN_USE in [RakNet's startup result enum](https://github.com/facebookarchive/RakNet/blob/master/Source/RakNetTypes.h). Check ownerPid in restart-helper.log on the dedicated machine. A cancelled restart leaves the old server stopped; resolve the port conflict before starting it again.
+
+## Windows restart socket inheritance fix (0.3.2)
+
+On Windows, the original Java ProcessBuilder launch allowed the helper to inherit RakNet's native socket handles. Even after the original server closed its sockets and exited, those copies could keep its UDP ports busy. The port check in 0.3.1 detected this condition but did not remove its cause.
+
+The bundled Windows launcher now passes only the private stdin/stdout/stderr handles to the helper through an explicit Windows handle list. The short-lived launcher exits when either the original server or the helper exits, releasing its own inherited copies. The helper and replacement do not receive the old server sockets. It remains a one-shot graceful restart; no process kill or automatic retry is added. This uses the Windows .NET Framework runtime already used by the installer, and requires no additional installation. The launcher EXE is embedded in the JAR and extracted to the active runtime directory with a content-hash filename. Missing resources or launch failures refuse restart preparation before shutdown.
+
+Install the updated EXE while the dedicated server is stopped, then start a clean server session with the new JAR. Existing failed processes from an older version must be identified separately; this update does not terminate them. Your runtime configuration is preserved. Test Restart only after the server is ready, then check its returning heartbeat.
+
+Native regression test, using installed RakNet and Java with temporary ports and no game world or Steam login:
+
+```powershell
+.\installer\test-native-restart.ps1 -GameDirectory "<ProjectZomboid directory>"
+```
+
+The same fixture reproduced retained ports with the 0.3.1 code and successfully rebound both ports in the replacement with 0.3.2. This validates native socket transfer and process relaunch, not a full production world startup. Windows builds embed the launcher using the built-in .NET Framework C# compiler; builds on other platforms use the existing direct Java helper path.
